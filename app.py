@@ -364,7 +364,7 @@ def create_sample_visualization(topic: str):
 
 def main():
     # Header
-    st.markdown('<h1 class="main-header">🤖 AI/ML/DL Comprehensive Learning Hub</h1>', 
+    st.markdown('<h1 class="main-header">✨ AI Comprehensive Learning Hub</h1>', 
                 unsafe_allow_html=True)
     
     # Sidebar for API key and navigation
@@ -494,7 +494,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #666; padding: 2rem;">
-        <p>🤖 AI/ML/DL Comprehensive Learning Hub | Powered by Google Gemini</p>
+        <p>✨ AI Comprehensive Learning Hub | Powered by Google Gemini</p>
         <p>📚 Covering 120+ topics across 11 comprehensive chapters</p>
     </div>
     """, unsafe_allow_html=True)
