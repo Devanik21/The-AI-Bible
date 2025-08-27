@@ -9,7 +9,7 @@ import time
 
 # Configure page
 st.set_page_config(
-    page_title="AI/ML/DL Comprehensive Learning Hub",
+    page_title="AI Comprehensive Learning Hub",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -204,7 +204,7 @@ CHAPTERS = {
 def create_comprehensive_prompt(topic: str) -> str:
     """Create a comprehensive prompt for the Gemini model."""
     return f"""
-    You are an expert AI/ML/DL educator. Provide a COMPREHENSIVE and DETAILED explanation for the topic: "{topic}"
+    You are an expert AI educator. Provide a COMPREHENSIVE and DETAILED explanation for the topic: "{topic}"
 
     Please structure your response with the following sections:
 
@@ -378,12 +378,12 @@ def main():
     if not api_key:
         st.sidebar.warning("Please enter your Gemini API key to proceed.")
         st.info("""
-        ## Welcome to the AI/ML/DL Comprehensive Learning Hub! 🚀
+        ## Welcome to the AI Comprehensive Learning Hub! ♾️
         
-        This application provides detailed explanations for over 120 AI/ML/DL topics using Google's Gemini AI.
+        This application provides detailed explanations for over 120 AI topics using Google's Gemini AI.
         
         ### Features:
-        - 📚 **Comprehensive Coverage**: 11 major chapters covering all aspects of AI/ML/DL
+        - 📚 **Comprehensive Coverage**: 11 major chapters covering all aspects of AI
         - 🔍 **Detailed Explanations**: Mathematical foundations, algorithms, code implementations
         - 📊 **Visual Learning**: Interactive charts and diagrams
         - 💻 **Practical Code**: Complete implementations and examples
@@ -442,7 +442,7 @@ def main():
         )
         
         # Generate content button
-        if st.sidebar.button("🚀 Generate Comprehensive Guide", type="primary"):
+        if st.sidebar.button("♾️ Generate Comprehensive Guide", type="primary"):
             # Display selected topic
             st.markdown(f"""
             <div class="chapter-container">
