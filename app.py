@@ -275,7 +275,7 @@ def initialize_gemini(api_key: str):
     """Initialize Gemini API with the provided key."""
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         return model
     except Exception as e:
         st.error(f"Error initializing Gemini API: {str(e)}")
