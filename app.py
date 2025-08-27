@@ -6,10 +6,15 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List
 import time
+import markdown2
+import base64
+from io import BytesIO
+import weasyprint
+from datetime import datetime
 
 # Configure page
 st.set_page_config(
-    page_title="AI Comprehensive Learning Hub",
+    page_title="AI/ML/DL Comprehensive Learning Hub",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -201,10 +206,354 @@ CHAPTERS = {
     ]
 }
 
+def create_pdf_styles() -> str:
+    """Create beautiful CSS styles for PDF export."""
+    return """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            color: #2d3748;
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .content-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .main-title {
+            font-size: 2.5em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .chapter-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin: 10px 5px;
+        }
+        
+        .topic-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 500;
+            margin: 5px;
+        }
+        
+        h1 {
+            color: #2d3748;
+            font-size: 2.2em;
+            font-weight: 700;
+            margin: 30px 0 20px 0;
+            padding: 15px 0;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        h2 {
+            color: #4a5568;
+            font-size: 1.6em;
+            font-weight: 600;
+            margin: 25px 0 15px 0;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+        }
+        
+        h3 {
+            color: #2d3748;
+            font-size: 1.3em;
+            font-weight: 600;
+            margin: 20px 0 10px 0;
+            padding: 8px 15px;
+            background: #f7fafc;
+            border-left: 3px solid #4facfe;
+            border-radius: 5px;
+        }
+        
+        p {
+            margin: 15px 0;
+            text-align: justify;
+            font-size: 1em;
+            line-height: 1.7;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+            border: 1px solid #feb2b2;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid #f56565;
+        }
+        
+        .info-box {
+            background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+            border: 1px solid #90cdf4;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid #4299e1;
+        }
+        
+        .success-box {
+            background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+            border: 1px solid #9ae6b4;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid #48bb78;
+        }
+        
+        code {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+        
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        
+        li {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        
+        blockquote {
+            border-left: 4px solid #667eea;
+            background: #f7fafc;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            color: #4a5568;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        tr:hover {
+            background: #e2e8f0;
+        }
+        
+        .emoji {
+            font-size: 1.2em;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            border-top: 2px solid #e2e8f0;
+            color: #718096;
+            font-size: 0.9em;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+        
+        @media print {
+            .content-container {
+                box-shadow: none;
+                margin: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+    """
+
+def create_pdf_content(topic: str, chapter: str, content: str) -> str:
+    """Create beautifully formatted PDF content."""
+    current_time = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+    
+    # Convert markdown to HTML
+    html_content = markdown2.markdown(content, extras=[
+        'fenced-code-blocks', 
+        'tables', 
+        'header-ids',
+        'footnotes',
+        'task_list',
+        'strike',
+        'cuddled-lists'
+    ])
+    
+    pdf_html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{topic} - AI/ML/DL Guide</title>
+        {create_pdf_styles()}
+    </head>
+    <body>
+        <div class="content-container">
+            <div class="header">
+                <h1 class="main-title">🤖 AI/ML/DL Comprehensive Guide</h1>
+                <p class="subtitle">Generated on {current_time}</p>
+                <div>
+                    <span class="chapter-badge">📚 {chapter}</span>
+                    <span class="topic-badge">🎯 {topic}</span>
+                </div>
+            </div>
+            
+            <div class="highlight-box">
+                <strong>📋 About This Guide:</strong><br>
+                This comprehensive guide covers all aspects of <strong>{topic}</strong> including theoretical foundations, 
+                mathematical concepts, practical implementations, and real-world applications. Generated using advanced AI 
+                to provide maximum educational value.
+            </div>
+            
+            {html_content}
+            
+            <div class="footer">
+                <p><strong>🤖 AI/ML/DL Comprehensive Learning Hub</strong></p>
+                <p>Powered by Google Gemini | Generated: {current_time}</p>
+                <p>📚 Complete coverage of 120+ AI/ML/DL topics across 11 comprehensive chapters</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return pdf_html
+
+def generate_pdf(content: str, topic: str, chapter: str) -> bytes:
+    """Generate a beautiful PDF from content."""
+    try:
+        pdf_html = create_pdf_content(topic, chapter, content)
+        pdf_bytes = weasyprint.HTML(string=pdf_html).write_pdf()
+        return pdf_bytes
+    except Exception as e:
+        st.error(f"Error generating PDF: {str(e)}")
+        return None
+
+def create_download_button(pdf_bytes: bytes, filename: str):
+    """Create a download button for the PDF."""
+    if pdf_bytes:
+        b64_pdf = base64.b64encode(pdf_bytes).decode()
+        href = f'<a href="data:application/pdf;base64,{b64_pdf}" download="{filename}" target="_blank">'
+        
+        st.markdown(
+            f"""
+            <div style="text-align: center; margin: 30px 0;">
+                {href}
+                    <button style="
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        padding: 15px 30px;
+                        border-radius: 25px;
+                        font-size: 16px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                        transition: all 0.3s ease;
+                    ">
+                        📄 Download Beautiful PDF Guide
+                    </button>
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Additional info
+        st.info(f"""
+        **📋 PDF Features:**
+        - 🎨 Beautiful gradient styling and colors
+        - 📚 Professional layout with proper typography  
+        - 🖼️ Formatted code blocks and tables
+        - 📄 Complete content with headers and navigation
+        - 🗓️ Generated on {datetime.now().strftime("%B %d, %Y")}
+        """)
+
 def create_comprehensive_prompt(topic: str) -> str:
     """Create a comprehensive prompt for the Gemini model."""
     return f"""
-    You are an expert AI educator. Provide a COMPREHENSIVE and DETAILED explanation for the topic: "{topic}"
+    You are an expert AI/ML/DL educator. Provide a COMPREHENSIVE and DETAILED explanation for the topic: "{topic}"
 
     Please structure your response with the following sections:
 
@@ -364,7 +713,7 @@ def create_sample_visualization(topic: str):
 
 def main():
     # Header
-    st.markdown('<h1 class="main-header">✨ AI Comprehensive Learning Hub</h1>', 
+    st.markdown('<h1 class="main-header">🤖 AI/ML/DL Comprehensive Learning Hub</h1>', 
                 unsafe_allow_html=True)
     
     # Sidebar for API key and navigation
@@ -378,12 +727,12 @@ def main():
     if not api_key:
         st.sidebar.warning("Please enter your Gemini API key to proceed.")
         st.info("""
-        ## Welcome to the AI Comprehensive Learning Hub! ♾️
+        ## Welcome to the AI/ML/DL Comprehensive Learning Hub! 🚀
         
-        This application provides detailed explanations for over 120 AI topics using Google's Gemini AI.
+        This application provides detailed explanations for over 120 AI/ML/DL topics using Google's Gemini AI.
         
         ### Features:
-        - 📚 **Comprehensive Coverage**: 11 major chapters covering all aspects of AI
+        - 📚 **Comprehensive Coverage**: 11 major chapters covering all aspects of AI/ML/DL
         - 🔍 **Detailed Explanations**: Mathematical foundations, algorithms, code implementations
         - 📊 **Visual Learning**: Interactive charts and diagrams
         - 💻 **Practical Code**: Complete implementations and examples
@@ -442,7 +791,7 @@ def main():
         )
         
         # Generate content button
-        if st.sidebar.button("♾️ Generate Comprehensive Guide", type="primary"):
+        if st.sidebar.button("🚀 Generate Comprehensive Guide", type="primary"):
             # Display selected topic
             st.markdown(f"""
             <div class="chapter-container">
@@ -462,6 +811,38 @@ def main():
                     
                 st.markdown("## 📖 Comprehensive Guide")
                 st.markdown(content)
+                
+                # PDF Export Section
+                st.markdown("---")
+                st.markdown("## 📄 Export Options")
+                
+                if st.button("🎨 Generate Beautiful PDF", type="secondary", use_container_width=True):
+                    with st.spinner("🎨 Creating beautiful PDF... This may take a moment."):
+                        try:
+                            # Generate PDF
+                            pdf_bytes = generate_pdf(content, selected_topic, selected_chapter)
+                            
+                            if pdf_bytes:
+                                # Create filename
+                                safe_topic = "".join(c for c in selected_topic if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                                filename = f"AI_ML_Guide_{safe_topic.replace(' ', '_')}.pdf"
+                                
+                                # Store in session state for download
+                                st.session_state['pdf_bytes'] = pdf_bytes
+                                st.session_state['pdf_filename'] = filename
+                                
+                                st.success("✅ Beautiful PDF generated successfully!")
+                                
+                        except Exception as e:
+                            st.error(f"Error generating PDF: {str(e)}")
+                            st.info("💡 Make sure you have installed: pip install weasyprint markdown2")
+                
+                # Show download button if PDF is generated
+                if 'pdf_bytes' in st.session_state and st.session_state['pdf_bytes']:
+                    create_download_button(
+                        st.session_state['pdf_bytes'], 
+                        st.session_state['pdf_filename']
+                    )
             
             with col2:
                 # Sample visualization
@@ -494,7 +875,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #666; padding: 2rem;">
-        <p>✨ AI Comprehensive Learning Hub | Powered by Google Gemini</p>
+        <p>🤖 AI/ML/DL Comprehensive Learning Hub | Powered by Google Gemini</p>
         <p>📚 Covering 120+ topics across 11 comprehensive chapters</p>
     </div>
     """, unsafe_allow_html=True)
