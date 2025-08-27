@@ -3,3 +3,5 @@ plotly
 google-generativeai
 numpy
 pandas
+markdown2
+weasyprint
