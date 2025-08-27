@@ -4,4 +4,4 @@ google-generativeai
 numpy
 pandas
 markdown2
-canvas
+reportlab
