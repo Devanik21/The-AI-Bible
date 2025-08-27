@@ -9,8 +9,18 @@ import time
 import markdown2
 import base64
 from io import BytesIO
-import weasyprint
 from datetime import datetime
+try:
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+    from reportlab.pdfgen import canvas
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
 
 # Configure page
 st.set_page_config(
@@ -205,6 +215,526 @@ CHAPTERS = {
         "Social Implications of AI (AGI, Future AI Risks)"
     ]
 }
+
+def create_beautiful_pdf_styles():
+    """Create beautiful styles for ReportLab PDF."""
+    styles = getSampleStyleSheet()
+    
+    # Custom styles with colors
+    custom_styles = {
+        'CustomTitle': ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Title'],
+            fontSize=24,
+            textColor=colors.Color(0.4, 0.31, 0.64),  # Purple color
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        ),
+        'CustomHeading1': ParagraphStyle(
+            'CustomHeading1',
+            parent=styles['Heading1'],
+            fontSize=18,
+            textColor=colors.Color(0.18, 0.22, 0.28),  # Dark gray
+            spaceBefore=20,
+            spaceAfter=12,
+            fontName='Helvetica-Bold',
+            borderWidth=1,
+            borderColor=colors.Color(0.4, 0.31, 0.64),
+            borderPadding=8,
+            backColor=colors.Color(0.96, 0.97, 0.99)
+        ),
+        'CustomHeading2': ParagraphStyle(
+            'CustomHeading2',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.Color(0.29, 0.34, 0.41),
+            spaceBefore=15,
+            spaceAfter=8,
+            fontName='Helvetica-Bold',
+            leftIndent=10,
+            borderWidth=1,
+            borderColor=colors.Color(0.31, 0.68, 0.87),
+            borderPadding=5,
+            backColor=colors.Color(0.94, 0.97, 1.0)
+        ),
+        'CustomBody': ParagraphStyle(
+            'CustomBody',
+            parent=styles['Normal'],
+            fontSize=11,
+            textColor=colors.Color(0.18, 0.22, 0.28),
+            spaceAfter=10,
+            alignment=TA_JUSTIFY,
+            fontName='Helvetica'
+        ),
+        'CustomCode': ParagraphStyle(
+            'CustomCode',
+            parent=styles['Code'],
+            fontSize=9,
+            textColor=colors.Color(0.89, 0.91, 0.94),
+            backColor=colors.Color(0.18, 0.22, 0.28),
+            fontName='Courier',
+            leftIndent=15,
+            rightIndent=15,
+            spaceBefore=5,
+            spaceAfter=5,
+            borderWidth=1,
+            borderColor=colors.Color(0.4, 0.31, 0.64),
+            borderPadding=8
+        ),
+        'CustomBullet': ParagraphStyle(
+            'CustomBullet',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.Color(0.18, 0.22, 0.28),
+            leftIndent=20,
+            spaceAfter=5,
+            bulletIndent=10
+        ),
+        'HeaderStyle': ParagraphStyle(
+            'HeaderStyle',
+            fontSize=10,
+            textColor=colors.Color(0.4, 0.31, 0.64),
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        ),
+        'FooterStyle': ParagraphStyle(
+            'FooterStyle',
+            fontSize=8,
+            textColor=colors.Color(0.45, 0.55, 0.64),
+            alignment=TA_CENTER,
+            fontName='Helvetica'
+        )
+    }
+    
+    return custom_styles
+
+def create_colored_table_style():
+    """Create a beautiful table style with colors."""
+    return TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.4, 0.31, 0.64)),  # Header background
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),  # Header text color
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.Color(0.98, 0.98, 1.0)),  # Alternating rows
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.Color(0.98, 0.98, 1.0), colors.white]),
+        ('GRID', (0, 0), (-1, -1), 1, colors.Color(0.85, 0.85, 0.9))
+    ])
+
+def parse_markdown_to_reportlab(content: str, styles: dict) -> list:
+    """Convert markdown content to ReportLab elements with beautiful formatting."""
+    elements = []
+    lines = content.split('\n')
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        if not line:
+            elements.append(Spacer(1, 6))
+            i += 1
+            continue
+            
+        # Headers
+        if line.startswith('## '):
+            header_text = line[3:].strip()
+            # Remove emoji and format
+            clean_header = ''.join(c for c in header_text if not c.encode('utf-8').isalpha() or ord(c) < 127)
+            elements.append(Paragraph(f"<b>{clean_header}</b>", styles['CustomHeading1']))
+            elements.append(Spacer(1, 12))
+            
+        elif line.startswith('### '):
+            header_text = line[4:].strip()
+            clean_header = ''.join(c for c in header_text if not c.encode('utf-8').isalpha() or ord(c) < 127)
+            elements.append(Paragraph(f"<b>{clean_header}</b>", styles['CustomHeading2']))
+            elements.append(Spacer(1, 8))
+            
+        # Code blocks
+        elif line.startswith('```'):
+            i += 1
+            code_lines = []
+            while i < len(lines) and not lines[i].strip().startswith('```'):
+                code_lines.append(lines[i])
+                i += 1
+            
+            if code_lines:
+                code_text = '\n'.join(code_lines)
+                # Split long code lines
+                formatted_code = []
+                for code_line in code_text.split('\n'):
+                    if len(code_line) > 80:
+                        # Break long lines
+                        while len(code_line) > 80:
+                            formatted_code.append(code_line[:80])
+                            code_line = '  ' + code_line[80:]
+                        if code_line.strip():
+                            formatted_code.append(code_line)
+                    else:
+                        formatted_code.append(code_line)
+                
+                elements.append(Paragraph('<font color="#e2e8f0"><pre>' + '\n'.join(formatted_code) + '</pre></font>', styles['CustomCode']))
+                elements.append(Spacer(1, 10))
+        
+        # Bullet points
+        elif line.startswith('- ') or line.startswith('* '):
+            bullet_text = line[2:].strip()
+            elements.append(Paragraph(f"• {bullet_text}", styles['CustomBullet']))
+            
+        # Numbered lists
+        elif line and line[0].isdigit() and '. ' in line:
+            list_text = line.split('. ', 1)[1]
+            number = line.split('. ')[0]
+            elements.append(Paragraph(f"{number}. {list_text}", styles['CustomBullet']))
+            
+        # Regular paragraphs
+        elif line:
+            # Handle bold text
+            formatted_line = line.replace('**', '<b>').replace('**', '</b>')
+            # Handle italic text  
+            formatted_line = formatted_line.replace('*', '<i>').replace('*', '</i>')
+            # Handle inline code
+            formatted_line = formatted_line.replace('`', '<font color="#4a5568" fontName="Courier">')
+            formatted_line = formatted_line.replace('`', '</font>')
+            
+            elements.append(Paragraph(formatted_line, styles['CustomBody']))
+            
+        i += 1
+    
+    return elements
+
+class NumberedCanvas(canvas.Canvas):
+    """Custom canvas for adding headers and footers with colors."""
+    def __init__(self, *args, **kwargs):
+        canvas.Canvas.__init__(self, *args, **kwargs)
+        self.pages = []
+        
+    def showPage(self):
+        self.pages.append(dict(self.__dict__))
+        self._startPage()
+        
+    def save(self):
+        page_count = len(self.pages)
+        for page_num, page in enumerate(self.pages, 1):
+            self.__dict__.update(page)
+            self.draw_page_elements(page_num, page_count)
+            canvas.Canvas.showPage(self)
+        canvas.Canvas.save(self)
+        
+    def draw_page_elements(self, page_num, page_count):
+        # Header with gradient-like effect
+        self.setFillColor(colors.Color(0.4, 0.31, 0.64))
+        self.setFont("Helvetica-Bold", 12)
+        self.drawString(50, letter[1] - 30, "🤖 AI/ML/DL Comprehensive Guide")
+        
+        # Footer
+        self.setFillColor(colors.Color(0.45, 0.55, 0.64))
+        self.setFont("Helvetica", 9)
+        footer_text = f"Generated: {datetime.now().strftime('%B %d, %Y')} | Page {page_num} of {page_count}"
+        text_width = self.stringWidth(footer_text)
+        self.drawString((letter[0] - text_width) / 2, 30, footer_text)
+
+def generate_beautiful_pdf_reportlab(content: str, topic: str, chapter: str) -> bytes:
+    """Generate a beautiful PDF using ReportLab with colors and styling."""
+    try:
+        buffer = BytesIO()
+        
+        # Create document with custom canvas
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=60,
+            bottomMargin=60,
+            canvasmaker=NumberedCanvas
+        )
+        
+        # Get custom styles
+        styles = create_beautiful_pdf_styles()
+        elements = []
+        
+        # Title page elements
+        elements.append(Spacer(1, 50))
+        
+        # Main title with color
+        title_text = f"🤖 AI/ML/DL Comprehensive Guide"
+        elements.append(Paragraph(title_text, styles['CustomTitle']))
+        elements.append(Spacer(1, 30))
+        
+        # Chapter and topic info with colored boxes
+        chapter_info = f"""
+        <para alignment="center">
+            <b>📚 Chapter:</b> {chapter}<br/>
+            <b>🎯 Topic:</b> {topic}<br/>
+            <b>🗓️ Generated:</b> {datetime.now().strftime("%B %d, %Y at %I:%M %p")}
+        </para>
+        """
+        elements.append(Paragraph(chapter_info, styles['CustomBody']))
+        elements.append(Spacer(1, 40))
+        
+        # Add a colored separator
+        separator_table = Table([['']], colWidths=[500])
+        separator_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.Color(0.4, 0.31, 0.64)),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(separator_table)
+        elements.append(Spacer(1, 30))
+        
+        # Content description box
+        desc_text = f"""
+        <b>📋 About This Guide:</b><br/>
+        This comprehensive guide covers all aspects of <b>{topic}</b> including theoretical foundations, 
+        mathematical concepts, practical implementations, and real-world applications. Generated using 
+        advanced AI to provide maximum educational value with beautiful formatting and colors.
+        """
+        elements.append(Paragraph(desc_text, styles['CustomBody']))
+        elements.append(PageBreak())
+        
+        # Parse and add main content
+        content_elements = parse_markdown_to_reportlab(content, styles)
+        elements.extend(content_elements)
+        
+        # Add footer section
+        elements.append(Spacer(1, 30))
+        footer_table = Table([['']], colWidths=[500])
+        footer_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.Color(0.4, 0.31, 0.64)),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(footer_table)
+        elements.append(Spacer(1, 20))
+        
+        footer_text = """
+        <para alignment="center">
+            <b>🤖 AI/ML/DL Comprehensive Learning Hub</b><br/>
+            Powered by Google Gemini<br/>
+            📚 Complete coverage of 120+ AI/ML/DL topics across 11 comprehensive chapters
+        </para>
+        """
+        elements.append(Paragraph(footer_text, styles['FooterStyle']))
+        
+        # Build PDF
+        doc.build(elements)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        
+        return pdf_bytes
+        
+    except Exception as e:
+        st.error(f"Error generating PDF with ReportLab: {str(e)}")
+        return None
+
+def generate_simple_html_pdf(content: str, topic: str, chapter: str) -> str:
+    """Generate HTML content that can be printed to PDF by browser."""
+    current_time = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+    
+    html_content = markdown2.markdown(content, extras=[
+        'fenced-code-blocks', 
+        'tables', 
+        'header-ids'
+    ])
+    
+    html_pdf = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>{topic} - AI/ML/DL Guide</title>
+        <style>
+            @media print {{
+                @page {{ margin: 1in; }}
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
+            }}
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }}
+            .content {{
+                background: white;
+                padding: 40px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            }}
+            .header {{
+                text-align: center;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 3px solid #667eea;
+            }}
+            .title {{
+                font-size: 2.5em;
+                color: #667eea;
+                margin-bottom: 10px;
+                font-weight: bold;
+            }}
+            .subtitle {{
+                color: #666;
+                font-size: 1.1em;
+            }}
+            .badges {{
+                margin: 15px 0;
+            }}
+            .badge {{
+                display: inline-block;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 0.9em;
+                margin: 5px;
+                font-weight: bold;
+            }}
+            h1, h2 {{
+                color: #667eea;
+                border-bottom: 2px solid #eee;
+                padding-bottom: 10px;
+            }}
+            h3 {{
+                color: #764ba2;
+            }}
+            pre {{
+                background: #2d3748;
+                color: #e2e8f0;
+                padding: 15px;
+                border-radius: 8px;
+                overflow-x: auto;
+                font-size: 14px;
+            }}
+            code {{
+                background: #f1f3f4;
+                padding: 2px 4px;
+                border-radius: 3px;
+                font-family: monospace;
+            }}
+            blockquote {{
+                border-left: 4px solid #667eea;
+                background: #f8f9fa;
+                padding: 15px;
+                margin: 15px 0;
+                border-radius: 0 8px 8px 0;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 15px 0;
+            }}
+            th {{
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                padding: 12px;
+                text-align: left;
+            }}
+            td {{
+                padding: 10px;
+                border-bottom: 1px solid #eee;
+            }}
+            tr:nth-child(even) {{
+                background: #f8f9fa;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 2px solid #eee;
+                color: #666;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="content">
+            <div class="header">
+                <h1 class="title">🤖 AI/ML/DL Guide</h1>
+                <p class="subtitle">Generated on {current_time}</p>
+                <div class="badges">
+                    <span class="badge">📚 {chapter}</span>
+                    <span class="badge">🎯 {topic}</span>
+                </div>
+            </div>
+            
+            {html_content}
+            
+            <div class="footer">
+                <p><strong>AI/ML/DL Comprehensive Learning Hub</strong></p>
+                <p>Powered by Google Gemini | {current_time}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html_pdf
+
+def create_pdf_options(content: str, topic: str, chapter: str):
+    """Create multiple PDF export options."""
+    st.markdown("### 📄 PDF Export Options")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if REPORTLAB_AVAILABLE:
+            if st.button("🎨 Beautiful PDF (ReportLab)", type="primary", use_container_width=True):
+                with st.spinner("🎨 Creating beautiful PDF..."):
+                    pdf_bytes = generate_beautiful_pdf_reportlab(content, topic, chapter)
+                    
+                    if pdf_bytes:
+                        safe_topic = "".join(c for c in topic if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                        filename = f"AI_ML_Guide_{safe_topic.replace(' ', '_')}.pdf"
+                        
+                        b64_pdf = base64.b64encode(pdf_bytes).decode()
+                        href = f'<a href="data:application/pdf;base64,{b64_pdf}" download="{filename}">'
+                        
+                        st.markdown(
+                            f"""
+                            <div style="text-align: center; margin: 20px 0;">
+                                {href}
+                                    <button style="
+                                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                        color: white; border: none; padding: 12px 24px;
+                                        border-radius: 20px; font-weight: bold; cursor: pointer;
+                                    ">📥 Download Beautiful PDF</button>
+                                </a>
+                            </div>
+                            """, unsafe_allow_html=True
+                        )
+                        
+                        st.success("✅ Beautiful PDF with colors and styling generated!")
+        else:
+            st.info("💡 Install ReportLab for beautiful PDFs: `pip install reportlab`")
+    
+    with col2:
+        if st.button("🌐 Printable HTML", type="secondary", use_container_width=True):
+            html_content = generate_simple_html_pdf(content, topic, chapter)
+            
+            safe_topic = "".join(c for c in topic if c.isalnum() or c in (' ', '-', '_')).rstrip()
+            filename = f"AI_ML_Guide_{safe_topic.replace(' ', '_')}.html"
+            
+            b64_html = base64.b64encode(html_content.encode()).decode()
+            href = f'<a href="data:text/html;base64,{b64_html}" download="{filename}">'
+            
+            st.markdown(
+                f"""
+                <div style="text-align: center; margin: 20px 0;">
+                    {href}
+                        <button style="
+                            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                            color: white; border: none; padding: 12px 24px;
+                            border-radius: 20px; font-weight: bold; cursor: pointer;
+                        ">📥 Download HTML</button>
+                    </a>
+                </div>
+                """, unsafe_allow_html=True
+            )
+            
+            st.info("💡 Download HTML and use browser's 'Print to PDF' for colored PDF export!")
 
 def create_pdf_styles() -> str:
     """Create beautiful CSS styles for PDF export."""
@@ -624,7 +1154,7 @@ def initialize_gemini(api_key: str):
     """Initialize Gemini API with the provided key."""
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-1.5-pro')
         return model
     except Exception as e:
         st.error(f"Error initializing Gemini API: {str(e)}")
@@ -737,11 +1267,17 @@ def main():
         - 📊 **Visual Learning**: Interactive charts and diagrams
         - 💻 **Practical Code**: Complete implementations and examples
         - 🎯 **Real-world Applications**: Industry use cases and best practices
+        - 📄 **Beautiful PDFs**: Export guides as styled PDFs with colors and formatting
         
         ### To Get Started:
         1. Get your free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
         2. Enter it in the sidebar
         3. Select a chapter and topic to explore
+        4. Export as beautiful PDF (requires `pip install reportlab markdown2`)
+        
+        **PDF Options Available:**
+        - 🎨 **Beautiful PDF**: Full-color styled PDF with ReportLab
+        - 🌐 **Printable HTML**: Browser-printable HTML with styling
         
         **Note**: The app uses up to 8192 tokens for maximum comprehensive content generation.
         """)
@@ -814,35 +1350,7 @@ def main():
                 
                 # PDF Export Section
                 st.markdown("---")
-                st.markdown("## 📄 Export Options")
-                
-                if st.button("🎨 Generate Beautiful PDF", type="secondary", use_container_width=True):
-                    with st.spinner("🎨 Creating beautiful PDF... This may take a moment."):
-                        try:
-                            # Generate PDF
-                            pdf_bytes = generate_pdf(content, selected_topic, selected_chapter)
-                            
-                            if pdf_bytes:
-                                # Create filename
-                                safe_topic = "".join(c for c in selected_topic if c.isalnum() or c in (' ', '-', '_')).rstrip()
-                                filename = f"AI_ML_Guide_{safe_topic.replace(' ', '_')}.pdf"
-                                
-                                # Store in session state for download
-                                st.session_state['pdf_bytes'] = pdf_bytes
-                                st.session_state['pdf_filename'] = filename
-                                
-                                st.success("✅ Beautiful PDF generated successfully!")
-                                
-                        except Exception as e:
-                            st.error(f"Error generating PDF: {str(e)}")
-                            st.info("💡 Make sure you have installed: pip install weasyprint markdown2")
-                
-                # Show download button if PDF is generated
-                if 'pdf_bytes' in st.session_state and st.session_state['pdf_bytes']:
-                    create_download_button(
-                        st.session_state['pdf_bytes'], 
-                        st.session_state['pdf_filename']
-                    )
+                create_pdf_options(content, selected_topic, selected_chapter)
             
             with col2:
                 # Sample visualization
