@@ -21,6 +21,10 @@ try:
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
+    # Create dummy classes to prevent NameError
+    class canvas:
+        class Canvas:
+            pass
 
 # Configure page
 st.set_page_config(
