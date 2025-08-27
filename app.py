@@ -7,6 +7,7 @@ import pandas as pd
 from typing import Dict, List
 import time
 import markdown2
+import canvas
 import base64
 from io import BytesIO
 from datetime import datetime
