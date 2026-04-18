@@ -1,0 +1,3 @@
+# Reinforcement Learning from Human Feedback (RLHF)
+
+RLHF is a machine learning technique that trains a reward model directly from human feedback...

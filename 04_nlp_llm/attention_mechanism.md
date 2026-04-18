@@ -1,0 +1,3 @@
+# Attention Mechanism
+
+Attention is a technique that mimics cognitive attention. The effect enhances the important parts of the input data...
