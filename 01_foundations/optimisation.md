@@ -4,4 +4,4 @@ Optimisation is the selection of a best element, with regard to some criterion, 
 
 ## Gradient Descent
 
-Gradient descent is a first-order iterative optimization algorithm...
+Gradient descent is a first-order iterative optimisation algorithm used to find the local minimum of a differentiable function.
