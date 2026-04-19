@@ -4,4 +4,4 @@ Calculus is essential for understanding the mathematics behind optimization algo
 
 ## Derivatives
 
-Derivatives represent the rate of change...
+Derivatives represent the rate of change of a function's output relative to its input variables.
