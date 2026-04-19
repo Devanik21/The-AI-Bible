@@ -1,0 +1,3 @@
+# Retrieval-Augmented Generation (RAG)
+
+Retrieval-augmented generation is an architecture that supplements a language model with external knowledge...

@@ -1,0 +1,3 @@
+# Fairness and Bias in AI
+
+Algorithmic bias describes systematic and repeatable errors in a computer system that create unfair outcomes...

@@ -1,0 +1,3 @@
+# Transformers
+
+The transformer is a deep learning architecture that relies on the self-attention mechanism...

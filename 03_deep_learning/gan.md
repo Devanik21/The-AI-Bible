@@ -1,0 +1,3 @@
+# Generative Adversarial Networks (GAN)
+
+A generative adversarial network is a class of machine learning frameworks...
