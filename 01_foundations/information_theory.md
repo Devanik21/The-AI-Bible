@@ -4,4 +4,4 @@ Information theory is the mathematical study of the quantification, storage, and
 
 ## Entropy
 
-Entropy is a measure of uncertainty or randomness...
+Entropy is a measure of the average amount of information or uncertainty inherent in a random variable.
